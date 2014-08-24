@@ -13,10 +13,7 @@
 
 Route::get('/', function()
 {
-    $images = App::make('Periskop\ImageRepository');
-    $all = $images->get('/Users/sidneywidmer/Development/www/periskop_server/public/uploads/test.png');
-
-    var_dump($all);
+    return View::make('hello');
 });
 
 Event::listen('file.created', 'Periskop\DirectoryObserver@newFile');

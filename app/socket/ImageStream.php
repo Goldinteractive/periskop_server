@@ -30,12 +30,33 @@ class ImageStream extends BaseTopic {
 
 	public function call($connection, $id, $topic, array $params)
 	{
-
+		if(array_get($params, 'action', null) !== null)
+		{
+			switch (array_get($params, 'action')) {
+	            case 'givememore':
+	                $this->actionRandomImage($connection, $topic);
+	                break;
+	            default:
+	                //something went wrong
+	                $connection->close();
+	                break;
+	        }
+		}
 	}
 
 	public function unsubscribe($connection, $topic)
 	{
 
+	}
+
+	/**
+	 * Return a random image from the folder to
+	 * the client who requested it
+	 */
+	protected function actionRandomImage($connection, $topic)
+	{
+		$data = $this->images->getRandom('/' . trim(public_path('uploads'), '/'));
+		$this->broadcastEligible($topic, $data, array($connection->WAMP->sessionId));
 	}
 
 }

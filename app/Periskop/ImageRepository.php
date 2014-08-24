@@ -18,8 +18,8 @@ class ImageRepository {
     /**
      * Get all necessary information to an image
      *
-     * @param   string $path
-     * @return  mixed         Illuminate\Support\Fluent | null
+     * @param   string  $path
+     * @return  mixed          Illuminate\Support\Fluent | null
      */
     public function get($path)
     {
@@ -65,6 +65,28 @@ class ImageRepository {
         }
 
         return $return;
+    }
+
+    /**
+     * Get a random image from a directory
+     *
+     * @param   string  $path
+     * @return  mixed          Illuminate\Support\Fluent | null
+     */
+    public function getRandom($path)
+    {
+        $filelist = array();
+        $files = $this->filesystem->files($path);
+
+        foreach ($files as $file)
+        {
+            $filelist[] = $file;
+        }
+
+        $rnd = array_rand($filelist);
+        $file = $this->get($filelist[$rnd]);
+
+        return $file;
     }
 
     protected function getCTime($path)
