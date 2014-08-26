@@ -16,7 +16,5 @@ Route::get('/', function()
     return View::make('hello');
 });
 
-Event::listen('file.created', 'Periskop\DirectoryObserver@newFile');
-
 Latchet::connection('Connection');
 Latchet::topic('stream', 'ImageStream');

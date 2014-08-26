@@ -7,8 +7,7 @@
 		"laravel/framework": "4.2.*",
 		"cboden/Ratchet": "dev-master",
 		"sidney/latchet": "dev-master",
-		"react/zmq": "0.2.*|0.3.*",
-		"mkraemer/react-inotify": "dev-master"
+		"react/zmq": "0.2.*|0.3.*"
 	},
 	"provide": { "ext-zmq": "*", "ext-inotify": "*" },
 	"repositories": [

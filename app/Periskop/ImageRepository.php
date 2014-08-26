@@ -1,18 +1,24 @@
 <?php namespace Periskop;
 
+use Imagick;
 use Illuminate\Support\Fluent;
 use Illuminate\Filesystem\Filesystem;
-use Imagick;
+use FilesystemIterator as FileIterator;
 
 class ImageRepository {
 
     protected $filesystem;
 
-    protected $images;
+    protected $upload_folder;
+
+    protected $final_folder;
 
     public function __construct(Filesystem $filesystem)
     {
         $this->filesystem = $filesystem;
+
+        $this->upload_folder = '/' . trim(public_path('uploads'), '/') . '/';
+        $this->final_folder = '/' . trim(public_path('images'), '/') . '/';
     }
 
     /**
@@ -44,49 +50,45 @@ class ImageRepository {
     }
 
     /**
-     * Get all images from a directory
+     * Get the most recent uploaded file
      *
-     * @param  string  $path
-     * @return array
+     * @return  mixed  Illuminate\Support\Fluent | null
      */
-    public function getFromDirectory($path)
+    public function getMostRecent()
     {
-        $return = array();
-        $files = $this->filesystem->files($path);
+        $latest = null;
+        $timestamp = 0;
+        $files = new FileIterator($this->upload_folder, FileIterator::SKIP_DOTS);
 
         foreach ($files as $file)
         {
-            $f = $this->get($file);
-
-            if($f !== null)
+            // Only take the file if the 'last changed' date is newer
+            // than the timestamp of our last ajax request
+            // (which got saved in a cache file)
+            if($file->getMTime() > $timestamp)
             {
-                $return[] = $f;
+                $latest = $file->getPathname();
+
+                $timestamp = $file->getMTime();
             }
         }
 
-        return $return;
+        if($latest !== null)
+        {
+            return $this->get($latest);
+        }
+
+        return null;
     }
 
-    /**
-     * Get a random image from a directory
-     *
-     * @param   string  $path
-     * @return  mixed          Illuminate\Support\Fluent | null
-     */
-    public function getRandom($path)
+    public function moveFiles()
     {
-        $filelist = array();
-        $files = $this->filesystem->files($path);
+        $files = $this->filesystem->files($this->upload_folder);
 
         foreach ($files as $file)
         {
-            $filelist[] = $file;
+            $this->filesystem->move($file, $this->final_folder . $this->getFilename($file));
         }
-
-        $rnd = array_rand($filelist);
-        $file = $this->get($filelist[$rnd]);
-
-        return $file;
     }
 
     protected function getCTime($path)

@@ -59,12 +59,8 @@ class ListenCommand extends Command {
             $this->allowFlash($loop);
         }
 
-        // Listen on filesystem
-        $inotify = new \MKraemer\ReactInotify\Inotify($loop);
-        $inotify->add('/' . trim(public_path('uploads'), '/') . '/', IN_CLOSE_WRITE); // Make sure we have a trailing slash
-
-        $inotify->on(IN_CLOSE_WRITE, function ($path) {
-            \Event::fire('file.created', array($path));
+        $loop->addPeriodicTimer(6, function($timer){
+            Event::fire('ticktack', array($timer));
         });
 
         $this->info('Listening on port ' . $this->option('port'));
