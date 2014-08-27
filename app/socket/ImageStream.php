@@ -119,7 +119,7 @@ class ImageStream extends BaseTopic {
      */
     protected function tick($timer)
     {
-        // echo 'Waiting on ' . count($this->waiting) .' responses of a total of ' . count($this->clients) .' connected clients' . PHP_EOL;
+        echo 'Waiting on ' . count($this->waiting) .' responses of a total of ' . count($this->clients) .' connected clients' . PHP_EOL;
         if(count($this->waiting) !== 0) return;
 
         $newest = $this->images->getMostRecent();
@@ -138,23 +138,20 @@ class ImageStream extends BaseTopic {
      */
     protected function broadcastImageStack()
     {
-        $clients = $this->clients;
-        reset($clients);
-        $first_key = key($clients);
+        $clients = new CachingIterator(new ArrayIterator($this->clients), CachingIterator::TOSTRING_USE_CURRENT);
+        $loops = 0;
 
         foreach ($clients as $key => $connection)
         {
-            // Check if we have a next guy in the line
-            $next_connection = next($clients);
-
-            if($next_connection !== false)
+            if($clients->hasNext())
             {
+                $next_connection = $clients->getInnerIterator()->current();
                 $next_connection->_nextimage = $connection->_image;
             }
 
             // If this is the first client in line, check if there's
             // a new image on the stack and if yes, add it
-            if($key == $first_key)
+            if($loops === 0)
             {
                 // We have a new image on the stack, let's
                 // display it
@@ -166,6 +163,8 @@ class ImageStream extends BaseTopic {
                 {
                     $connection->_nextimage = null;
                 }
+
+                $loops++;
             }
 
             $connection->_image = $connection->_nextimage;
@@ -177,7 +176,11 @@ class ImageStream extends BaseTopic {
             {
                 $this->waiting[] = $connection->WAMP->sessionId;
                 $this->broadcastEligible($connection->_currenttopic, array('action' => 'add', 'image' => $connection->_image), array($connection->WAMP->sessionId));
-                // echo 'client ' . $key . ' should load image: ' . $connection->_image->name . PHP_EOL;
+                echo 'client ' . $key . ' should load image: ' . $connection->_image->name . PHP_EOL;
+            }
+            else
+            {
+                echo 'client ' . $key . ' should not load any image ' . PHP_EOL;
             }
         }
     }
@@ -200,7 +203,7 @@ class ImageStream extends BaseTopic {
 
         if(count($this->waiting) === 0)
         {
-            $this->boradcast($connection->_currenttopic, array('action' => 'effect'));
+            $this->broadcast($connection->_currenttopic, array('action' => 'effect'));
         }
     }
 
@@ -239,7 +242,7 @@ class ImageStream extends BaseTopic {
         $connection->_handler = $this;
         $connection->joined = true;
 
-        // echo 'Connection with number ' . $number . ' added' . PHP_EOL;
+        echo 'Connection with number ' . $number . ' added' . PHP_EOL;
         $this->clients[$number] = $connection;
         ksort($this->clients); // Make sure they're in the correct order
     }

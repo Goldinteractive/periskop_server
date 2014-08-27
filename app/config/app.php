@@ -26,7 +26,7 @@ return array(
 	|
 	*/
 
-	'url' => 'http://178.62.185.145',
+	'url' => 'http://goldmoustacheparty.goldinteractive.ch',
 
 	/*
 	|--------------------------------------------------------------------------

@@ -41,7 +41,7 @@ class ImageRepository {
         $data = array(
             'timestamp' => $this->getCTime($path),
             'name'      => $this->getFilename($path),
-            'url'       => asset('uploads/' . $this->getFilename($path)),
+            'url'       => asset('images/' . $this->getFilename($path)),
             'width'     => $image->getImageWidth(),
             'height'    => $image->getImageHeight(),
         );
