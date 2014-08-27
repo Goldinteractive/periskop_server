@@ -44,7 +44,7 @@
 				connection.send(JSON.stringify([5, 'debug']));
 			},
 			onSocketMessage =function (e) {
-				debug.innerHTML = debug.innerHTML + '<br />' + JSON.stringify(JSON.parse(e.data)[2],4);
+				debug.innerHTML = debug.innerHTML + '<br />' + JSON.stringify(JSON.parse(e.data)[2].log_msg || 'No cool messages to show',4);
 			},
 			onSocketError = function (e) {
 				alert('error');
