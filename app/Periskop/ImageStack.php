@@ -55,4 +55,9 @@ class ImageStack {
     {
         return empty($this->stack);
     }
+
+    public function count()
+    {
+        return count($this->stack);
+    }
 }

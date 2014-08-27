@@ -48,6 +48,14 @@ class ImageStream extends BaseTopic {
      */
     protected $waiting = array();
 
+    /**
+     * Tmp variable to hold ticks (used for
+     * random image inject)
+     *
+     * @var integer
+     */
+    protected $random_tick = 0;
+
     public function __construct(ImageRepository $images, EventDispatcher $events, ImageStack $stack)
     {
         $this->images = $images;
@@ -126,6 +134,8 @@ class ImageStream extends BaseTopic {
     {
         if(count($this->waiting) !== 0) return;
 
+        $this->random_tick++;
+
         $this->debug(array('log_msg' =>  'TickTack, entered the timer loop (does not happen if we were waiting on image repsonses)'));
 
         $newest = $this->images->getMostRecent();
@@ -135,6 +145,14 @@ class ImageStream extends BaseTopic {
         {
             $this->debug(array('log_msg' =>  'New Image added to the stack!', 'data' => $newest));
             $this->stack->push($newest);
+        }
+        elseif($this->random_tick >= 3)
+        {
+            $this->random_tick = 0;
+            // No new images added via FTP, just get a random one from the final image folder
+            $rnd = $this->images->getRandom();
+            $this->debug(array('log_msg' =>  'New RANDOM Image added to the stack!', 'data' => $rnd));
+            $this->stack->push($rnd);
         }
 
         $this->broadcastImageStack();
@@ -249,7 +267,7 @@ class ImageStream extends BaseTopic {
         $connection->_handler = $this;
         $connection->joined = true;
 
-        $this->debug(array('log_msg' =>  'Connection with number ' . $number . ' added'));
+        $this->debug(array('log_msg' =>  'Connection with number ' . $number . ' added with ip ' . $connection->remoteAddress));
         $this->clients[$number] = $connection;
         ksort($this->clients); // Make sure they're in the correct order
     }
@@ -262,7 +280,6 @@ class ImageStream extends BaseTopic {
      */
     protected function debug(array $data)
     {
-        var_dump($data);
         Latchet::publish('debug', $data);
     }
 

@@ -1,6 +1,5 @@
 <?php namespace Periskop;
 
-use Imagick;
 use Illuminate\Support\Fluent;
 use Illuminate\Filesystem\Filesystem;
 use FilesystemIterator as FileIterator;
@@ -35,15 +34,12 @@ class ImageRepository {
             return null;
         }
 
-        //filectime basename
-        $image = new Imagick($path);
-
         $data = array(
             'timestamp' => $this->getCTime($path),
             'name'      => $this->getFilename($path),
             'url'       => asset('images/' . $this->getFilename($path)),
-            'width'     => $image->getImageWidth(),
-            'height'    => $image->getImageHeight(),
+            'width'     => 3000,
+            'height'    => 2000,
         );
 
         return new Fluent($data);
@@ -81,6 +77,20 @@ class ImageRepository {
         return null;
     }
 
+    public function getRandom()
+    {
+        $images = glob($this->final_folder . '*.{jpg,jpeg,png,gif}', GLOB_BRACE);
+        $rnd = $images[array_rand($images)]; // See comments
+
+        return $this->get($rnd);
+    }
+
+    /**
+     * Move all files from the upload folder
+     * to the final folder
+     *
+     * @return void
+     */
     public function moveFiles()
     {
         $files = $this->filesystem->files($this->upload_folder);
