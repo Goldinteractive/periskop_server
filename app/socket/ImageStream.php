@@ -119,7 +119,7 @@ class ImageStream extends BaseTopic {
      */
     protected function tick($timer)
     {
-        echo 'Waiting on ' . count($this->waiting) .' responses' . PHP_EOL;
+        // echo 'Waiting on ' . count($this->waiting) .' responses of a total of ' . count($this->clients) .' connected clients' . PHP_EOL;
         if(count($this->waiting) !== 0) return;
 
         $newest = $this->images->getMostRecent();
@@ -177,7 +177,7 @@ class ImageStream extends BaseTopic {
             {
                 $this->waiting[] = $connection->WAMP->sessionId;
                 $this->broadcastEligible($connection->_currenttopic, array('action' => 'add', 'image' => $connection->_image), array($connection->WAMP->sessionId));
-                echo 'client ' . $key . ' should load image: ' . $connection->_image->name . PHP_EOL;
+                // echo 'client ' . $key . ' should load image: ' . $connection->_image->name . PHP_EOL;
             }
         }
     }
@@ -239,6 +239,7 @@ class ImageStream extends BaseTopic {
         $connection->_handler = $this;
         $connection->joined = true;
 
+        // echo 'Connection with number ' . $number . ' added' . PHP_EOL;
         $this->clients[$number] = $connection;
         ksort($this->clients); // Make sure they're in the correct order
     }
