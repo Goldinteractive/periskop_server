@@ -65,6 +65,7 @@ class ImageStream extends BaseTopic {
     public function subscribe($connection, $topic)
     {
         $connection->_currenttopic = $topic;
+        $this->debug(array('log_msg' =>  'New subscriber with session id ' . $connection->WAMP->sessionId . ', this client has not yet joined the Periskop app!'));
         $this->broadcastEligible($topic, array('welcome_msg' => 'Benvenuto!'), array($connection->WAMP->sessionId));
     }
 
@@ -75,6 +76,8 @@ class ImageStream extends BaseTopic {
 
     public function call($connection, $id, $topic, array $params)
     {
+        $this->debug(array('log_msg' =>  'New message from Number ' . $connection->_number, 'data' => $params));
+
         if(array_get($params, 'action', null) !== null)
         {
             switch (array_get($params, 'action')) {
@@ -99,11 +102,13 @@ class ImageStream extends BaseTopic {
 
     public function unsubscribe($connection, $topic)
     {
+        $this->debug(array('log_msg' =>  'Number ' . $connection->_number .' just disconnected.'));
         unset($this->clients[$connection->_number]);
 
         // if we're still waiting on an image from this guy
         if(($key = array_search($connection->WAMP->sessionId, $this->waiting)) !== false)
         {
+            $this->debug(array('log_msg' =>  'Funny thing: we were still waiting on an image response of Number ' . $connection->_number .' while he disconnected.'));
             unset($this->waiting[$key]);
         }
     }
@@ -119,14 +124,16 @@ class ImageStream extends BaseTopic {
      */
     protected function tick($timer)
     {
-        echo 'Waiting on ' . count($this->waiting) .' responses of a total of ' . count($this->clients) .' connected clients' . PHP_EOL;
         if(count($this->waiting) !== 0) return;
+
+        $this->debug(array('log_msg' =>  'TickTack, entered the timer loop (does not happen if we were waiting on image repsonses)'));
 
         $newest = $this->images->getMostRecent();
         $this->images->moveFiles();
 
         if($newest !== null)
         {
+            $this->debug(array('log_msg' =>  'New Image added to the stack!', 'data' => $newest));
             $this->stack->push($newest);
         }
 
@@ -176,11 +183,11 @@ class ImageStream extends BaseTopic {
             {
                 $this->waiting[] = $connection->WAMP->sessionId;
                 $this->broadcastEligible($connection->_currenttopic, array('action' => 'add', 'image' => $connection->_image), array($connection->WAMP->sessionId));
-                echo 'client ' . $key . ' should load image: ' . $connection->_image->name . PHP_EOL;
+                $this->debug(array('log_msg' =>  'client ' . $key . ' should load image: ' . $connection->_image->name));
             }
             else
             {
-                echo 'client ' . $key . ' should not load any image ' . PHP_EOL;
+                $this->debug(array('log_msg' =>  'client ' . $key . ' should not load any image '));
             }
         }
     }
@@ -242,9 +249,21 @@ class ImageStream extends BaseTopic {
         $connection->_handler = $this;
         $connection->joined = true;
 
-        echo 'Connection with number ' . $number . ' added' . PHP_EOL;
+        $this->debug(array('log_msg' =>  'Connection with number ' . $number . ' added'));
         $this->clients[$number] = $connection;
         ksort($this->clients); // Make sure they're in the correct order
+    }
+
+    /**
+     * Publish debug messages to seperate Topic
+     *
+     * @param   array   $data  [description]
+     * @return  void
+     */
+    protected function debug(array $data)
+    {
+        var_dump($data);
+        Latchet::publish('debug', $data);
     }
 
 }

@@ -18,3 +18,4 @@ Route::get('/', function()
 
 Latchet::connection('Connection');
 Latchet::topic('stream', 'ImageStream');
+Latchet::topic('debug', 'DebugTopic');
