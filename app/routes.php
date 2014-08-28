@@ -16,6 +16,8 @@ Route::get('/', function()
     return View::make('hello');
 });
 
+Route::get('images_mobile/{name}', 'ImageController@getSmallImage');
+
 Latchet::connection('Connection');
 Latchet::topic('stream', 'ImageStream');
 Latchet::topic('debug', 'DebugTopic');

@@ -3,7 +3,6 @@
 use Periskop\ImageStack;
 use Periskop\ImageRepository;
 use Sidney\Latchet\BaseTopic;
-use Illuminate\Support\Collection;
 use Illuminate\Events\Dispatcher as EventDispatcher;
 
 class ImageStream extends BaseTopic {
@@ -16,11 +15,11 @@ class ImageStream extends BaseTopic {
     protected $images;
 
     /**
-     * Illuminate\Support\Collection instance holding
+     * Array holding
      * all subscribers which actually registered with
      * their assigned number
      *
-     * @var object
+     * @var arrray
      */
     protected $clients;
 
@@ -55,6 +54,19 @@ class ImageStream extends BaseTopic {
      * @var integer
      */
     protected $random_tick = 0;
+
+    /**
+     * Force guests holds an array of unique hashs
+     * which can be used for 'external' clients to connect
+     * to the application.
+     *
+     * @var array
+     */
+    protected $allowed_guests = array(
+        'dr48r' => 1000,
+        '89dwz' => 1001,
+        '1xlq6' => 1002,
+    );
 
     public function __construct(ImageRepository $images, EventDispatcher $events, ImageStack $stack)
     {
@@ -114,10 +126,10 @@ class ImageStream extends BaseTopic {
         unset($this->clients[$connection->_number]);
 
         // if we're still waiting on an image from this guy
-        if(($key = array_search($connection->WAMP->sessionId, $this->waiting)) !== false)
+        if(array_key_exists($connection->WAMP->sessionId, $this->waiting))
         {
+            unset($this->waiting[$connection->WAMP->sessionId]);
             $this->debug(array('log_msg' =>  'Funny thing: we were still waiting on an image response of Number ' . $connection->_number .' while he disconnected.'));
-            unset($this->waiting[$key]);
         }
     }
 
@@ -132,29 +144,46 @@ class ImageStream extends BaseTopic {
      */
     protected function tick($timer)
     {
-        if(count($this->waiting) !== 0) return;
+        if(count($this->clients) === 0)
+        {
+            $this->debug(array('log_msg' =>  'TickTack, entered the loop but noone is connected'));
+            return;
+        }
 
-        $this->random_tick++;
+        if(count($this->waiting) !== 0)
+        {
+            $numbers_open = array();
 
-        $this->debug(array('log_msg' =>  'TickTack, entered the timer loop (does not happen if we were waiting on image repsonses)'));
+            foreach ($this->waiting as $waiting)
+            {
+                $numbers_open[] = $waiting->_number;
+            }
+
+            $this->debug(array('log_msg' =>  'We are still waiting on the following numbers: ' . implode(', ', $numbers_open)));
+            return;
+        }
+
+
+        $this->debug(array('log_msg' =>  'TickTack, entered the timer loop'));
 
         $newest = $this->images->getMostRecent();
         $this->images->moveFiles();
 
         if($newest !== null)
         {
+            $this->random_tick = 0;
             $this->debug(array('log_msg' =>  'New Image added to the stack!', 'data' => $newest));
             $this->stack->push($newest);
         }
-        elseif($this->random_tick >= 3)
+        elseif($this->random_tick >= 10)
         {
-            $this->random_tick = 0;
             // No new images added via FTP, just get a random one from the final image folder
             $rnd = $this->images->getRandom();
             $this->debug(array('log_msg' =>  'New RANDOM Image added to the stack!', 'data' => $rnd));
             $this->stack->push($rnd);
         }
 
+        $this->random_tick++;
         $this->broadcastImageStack();
     }
 
@@ -199,9 +228,10 @@ class ImageStream extends BaseTopic {
             // to the array of waiting clients.
             if($connection->_image !== null)
             {
-                $this->waiting[] = $connection->WAMP->sessionId;
+                $this->waiting[$connection->WAMP->sessionId] = $connection;
                 $this->broadcastEligible($connection->_currenttopic, array('action' => 'add', 'image' => $connection->_image), array($connection->WAMP->sessionId));
-                $this->debug(array('log_msg' =>  'client ' . $key . ' should load image: ' . $connection->_image->name));
+
+                $this->debug(array('log_msg' =>  'client ' . $key . ' should load image: ' . $connection->_image['big']['name']));
             }
             else
             {
@@ -221,9 +251,9 @@ class ImageStream extends BaseTopic {
      */
     protected function clientLoadedImage($connection)
     {
-        if(($key = array_search($connection->WAMP->sessionId, $this->waiting)) !== false)
+        if(array_key_exists($connection->WAMP->sessionId, $this->waiting))
         {
-            unset($this->waiting[$key]);
+            unset($this->waiting[$connection->WAMP->sessionId]);
         }
 
         if(count($this->waiting) === 0)
@@ -242,7 +272,7 @@ class ImageStream extends BaseTopic {
      */
     protected function clientRegistration($connection, array $params)
     {
-        $number = array_get($params, 'number', null);
+        $number = $this->resolveNumber(array_get($params, 'number', null));
 
         // We need a valid 'number', otherwise -> GTFO!
         if($number === null or !is_int($number))
@@ -270,6 +300,37 @@ class ImageStream extends BaseTopic {
         $this->debug(array('log_msg' =>  'Connection with number ' . $number . ' added with ip ' . $connection->remoteAddress));
         $this->clients[$number] = $connection;
         ksort($this->clients); // Make sure they're in the correct order
+    }
+
+    /**
+     * If a client connects, he has a number (for the correct order).
+     * For guest access, this can also be a hash. We're trying to
+     * resolve a hash if one exists and kick the client which already
+     * uses the hash out of the stack
+     *
+     * @param  mixed    $number
+     * @return integer
+     */
+    protected function resolveNumber($number)
+    {
+        if(array_key_exists($number, $this->allowed_guests))
+        {
+            // this is a valid hash, so we have to check if no one is
+            // connected with this number already
+            $number = $this->allowed_guests[$number];
+
+            foreach ($this->clients as $client)
+            {
+                // ok we found one with this number/hash
+                if($client->_number === $number)
+                {
+                    $this->debug(array('log_msg' =>  'Connection with number ' . $number . ' got force-kiked out, because someone else reused the hash'));
+                    $this->broadcastEligible($client->_currenttopic, array('action' => 'kill'), array($client->WAMP->sessionId));
+                }
+            }
+        }
+
+        return $number;
     }
 
     /**

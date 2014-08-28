@@ -1,6 +1,5 @@
 <?php namespace Periskop;
 
-use Illuminate\Support\Fluent;
 use Illuminate\Filesystem\Filesystem;
 use FilesystemIterator as FileIterator;
 
@@ -12,12 +11,15 @@ class ImageRepository {
 
     protected $final_folder;
 
+    protected $mobile_folder;
+
     public function __construct(Filesystem $filesystem)
     {
         $this->filesystem = $filesystem;
 
         $this->upload_folder = '/' . trim(public_path('uploads'), '/') . '/';
         $this->final_folder = '/' . trim(public_path('images'), '/') . '/';
+        $this->mobile_folder = '/' . trim(public_path('images_mobile'), '/') . '/';
     }
 
     /**
@@ -34,7 +36,7 @@ class ImageRepository {
             return null;
         }
 
-        $data = array(
+        $data['big'] = array(
             'timestamp' => $this->getCTime($path),
             'name'      => $this->getFilename($path),
             'url'       => asset('images/' . $this->getFilename($path)),
@@ -42,7 +44,15 @@ class ImageRepository {
             'height'    => 2000,
         );
 
-        return new Fluent($data);
+        $data['small'] = array(
+            'timestamp' => $this->getCTime($path),
+            'name'      => $this->getFilename($path),
+            'url'       => asset('images_mobile/' .$this->getFilename($path)),
+            'width'     => 3000,
+            'height'    => 2000,
+        );
+
+        return $data;
     }
 
     /**
@@ -61,7 +71,7 @@ class ImageRepository {
             // Only take the file if the 'last changed' date is newer
             // than the timestamp of our last ajax request
             // (which got saved in a cache file)
-            if($file->getMTime() > $timestamp)
+            if($file->getMTime() > $timestamp and substr($file->getFilename(), 0, 4) !== 'temp')
             {
                 $latest = $file->getPathname();
 
@@ -97,7 +107,10 @@ class ImageRepository {
 
         foreach ($files as $file)
         {
-            $this->filesystem->move($file, $this->final_folder . $this->getFilename($file));
+            if( substr($this->getFilename($file), 0, 4) !== 'temp')
+            {
+                $this->filesystem->move($file, $this->final_folder . $this->getFilename($file));
+            }
         }
     }
 
